@@ -24,17 +24,17 @@ answering = {}
 bot_admins = ["289336202"]
 
 ################
-version = "1.3.0"
+version = "1.3.1"
 
-home = "Welcome back <a href='tg://user?id={user_id}'>{name}</a>!\nWith this bot you can create, edit, and share, little comments board.\nEveryone can leave a comment to your board, you too!\n\nFor first, use one of the buttons below to interact with the bot.\n\nv{version}"
+home = "Welcome or Welcome back <a href='tg://user?id={user_id}'>{name}</a>!\nWith this bot you can create, edit, and share, little comment boards.\nEveryone can leave a comment to your board, you too! and it's absolutely free.\n\nFor first, use one of the buttons below to interact with the bot.\n\nCreated with LOV by <a href='tg://user?id=289336202'>StivenFocs</a>\nv{version}"
 
 home_kb = InlineKeyboardMarkup([[InlineKeyboardButton("➕ New board", callback_data="post_new"),InlineKeyboardButton("💾 My posts",callback_data="post_mine")],[InlineKeyboardButton("❤️ Donate",url="https://buymeacoffee.com/stivenfocs"),InlineKeyboardButton("📂 Source code", url="https://github.com/StivenFocs/CommentsBoard-Telegram-Bot")]])
 
-new_post1 = "For first, choose a title for your new post..."
+new_post1 = "Send the title/caption for your new board..\n\n/cancel"
 
 messages = {}
 messages["no_boards"] = "No boards from you"
-messages["board_created"] = "<b>Post created successfully!</b>\n\nYou can now use the below menu to edit, share, or delete this board.\n\n{board_title}\nID: <code>{board_id}</code>\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) share this board."
+messages["board_created"] = "<b>Board created!</b>\n\nYou can now use the below menu to edit, share, or delete this board.\n\n{board_title}\nID: <code>{board_id}</code>\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) share this board."
 messages["board_panel"] = "{board_title}\n\nID: <code>{board_id}</code>\nShared {board_messages_amount} times\nWith {board_comments_amount} comments"
 messages["boards_list"] = "Here all your boards.."
 messages["board_deleted"] = "This board was deleted permanently."
@@ -364,7 +364,7 @@ async def onMsg(client,message):
                     await bot.send_message(chat_id, placeholder("90 Characters max", message, None), parse_mode="HTML")
         elif answering.get(user_id) is not None:
             if message.text.lower() == "/cancel":
-                del creating_post[user_id]
+                del answering[user_id]
                 await bot.send_message(chat_id, "Operation canceled")
                 return
             
@@ -420,6 +420,7 @@ async def onMsg(client,message):
             except Exception as ex:
                 print("Answering elif, ERROR OCCURRED.")
                 print(ex)
+            
             if answering.get(user_id) is not None:
                 del answering[user_id]
         else:
@@ -429,13 +430,13 @@ async def onMsg(client,message):
                     comparedentry = [a for a in cursor.execute("SELECT * FROM posts WHERE id='" + str(board_id) + "';")]
                     if len(comparedentry) > 0:
                         answering[user_id] = board_id
-                        await message.reply("Ok! now send me the answer..")
+                        await message.reply("Ok! Send me your comment text\n\n/cancel")
                     else:
                         await bot.send_message(chat_id,"Error, unrecognized board id.")
                 else:
                     await bot.send_message(chat_id, placeholder(home, message, None),parse_mode="HTML",reply_markup=home_kb, disable_web_page_preview=True)
             elif cmd[0].lower() == "/cancel":
-                await bot.send_message(chat_id, "No operations to cancel")
+                await bot.send_message(chat_id, "No operations to cancel.")
 
 @bot.on_callback_query()
 async def callback(client,query):
@@ -452,6 +453,8 @@ async def callback(client,query):
     add_chat(chat_id)
 
     data = query.data.split("_")
+    if data[0] == "home":
+        await bot.edit_message_text(chat_id, mid, placeholder(home, query, None), reply_markup=home_kb, disable_web_page_preview=True)
     if data[0] == "post":
         if len(data) > 1:
             if data[1] == "new":
@@ -476,6 +479,8 @@ async def callback(client,query):
                     boards = parse_group_entry(comparedentry)
                     for board in boards:
                         boards_list_keyboard.append([InlineKeyboardButton(str(board["title"]).replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'"), callback_data="post_edit_" + str(board["id"]))])
+                    boards_list_keyboard.append([InlineKeyboardButton("🔙 Back",callback_data="home")])
+                    
                     await bot.edit_message_text(chat_id, mid, placeholder(get_message("boards_list"), query, None), reply_markup=InlineKeyboardMarkup(boards_list_keyboard), disable_web_page_preview=True)
                 else:
                     await query.answer(placeholder(get_message("no_boards"), query, None))
@@ -503,7 +508,7 @@ async def callback(client,query):
                                     editing_post[user_id] = {}
                                     editing_post[user_id]["id"] = str(data[2])
                                     editing_post[user_id]["section"] = "title"
-                                    await bot.edit_message_text(chat_id, mid, placeholder("Ok, send me the new title for the board", query, None))
+                                    await bot.edit_message_text(chat_id, mid, placeholder("Ok, send me the new title/caption for this board...\n\n/cancel", query, None))
                                 elif data[3] == "clearComments":
                                     if str(board_data["open"]) == "true":
                                         if len(literal_eval(board_data["comments"])) > 0:
@@ -639,16 +644,16 @@ async def inline(client,query):
         comparedentry = [a for a in cursor.execute("SELECT * FROM posts WHERE id='" + str(post_id) + "';")]
         if len(comparedentry) > 0:
             board_data = parse_entry(comparedentry)
-            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]]))],cache_time=1,is_personal=True)
+            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data), disable_web_page_preview=True),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]]))],cache_time=1,is_personal=True)
         else:
-            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle("No Results",InputTextMessageContent("No board."))],cache_time=1,is_personal=True)
+            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle("No Results",InputTextMessageContent("No results", disable_web_page_preview=True))],cache_time=1,is_personal=True)
     else:
         comparedentry = [a for a in cursor.execute("SELECT * FROM posts WHERE owner='" + str(user_id) + "';")]
         if len(comparedentry) > 0:
             boards = parse_group_entry(comparedentry)
             boards_results = []
             for board_data in boards:
-                boards_results.append(InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]])))
+                boards_results.append(InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data), disable_web_page_preview=True),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]])))
             await bot.answer_inline_query(query.id, results=boards_results,cache_time=1,is_personal=True)
 
 @bot.on_chosen_inline_result()
