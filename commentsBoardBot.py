@@ -24,7 +24,7 @@ answering = {}
 bot_admins = ["289336202"]
 
 ################
-version = "1.2.4"
+version = "1.3.0"
 
 home = "Welcome back <a href='tg://user?id={user_id}'>{name}</a>!\nWith this bot you can create, edit, and share, little comments board.\nEveryone can leave a comment to your board, you too!\n\nFor first, use one of the buttons below to interact with the bot.\n\nv{version}"
 
@@ -295,11 +295,21 @@ async def onMsg(client,message):
                                 del editing_post[user_id]
                                 
                                 try:
-                                    cursor.execute("UPDATE posts SET title='" + title_encoded + "' WHERE id='" + board_id + "';")
+                                    cursor.execute("UPDATE posts SET title='" + str(title_encoded) + "' WHERE id='" + str(board_id) + "';")
                                     database.commit()
-                                    await bot.send_message(chat_id, placeholder("Title edited successfully!", message, None), reply_markup=return_editBoardKb(board_id))
+                                    await bot.send_message(chat_id, placeholder("Title edited successfully!", message, None), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back",callback_data="post_edit_" + str(board_id))]]))
                                 except Exception as ex:
-                                    await bot.send_message(chat_id, placeholder("Couldn't edit the title.", message, None))
+                                    await bot.send_message(chat_id, placeholder("Couldn't edit the title.", message, None), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back",callback_data="post_edit_" + str(board_id))]]))
+                                    print("An error occurred while trying to edit a board title")
+                                    print(ex)
+
+                                    exception_type, exception_object, exception_traceback = sys.exc_info()
+                                    filename = exception_traceback.tb_frame.f_code.co_filename
+                                    line_number = exception_traceback.tb_lineno
+
+                                    print("Exception type: ", exception_type)
+                                    print("File name: ", filename)
+                                    print("Line number: ", line_number)
 
                                 await refresh_board(board_id)
                             else:
@@ -493,17 +503,20 @@ async def callback(client,query):
                                     editing_post[user_id] = {}
                                     editing_post[user_id]["id"] = str(data[2])
                                     editing_post[user_id]["section"] = "title"
-                                    await bot.edit_message_text(hat_id, mid, placeholder("Ok, send me the new title for the board", query, None))
+                                    await bot.edit_message_text(chat_id, mid, placeholder("Ok, send me the new title for the board", query, None))
                                 elif data[3] == "clearComments":
                                     if str(board_data["open"]) == "true":
-                                        try:
-                                            cursor.execute("UPDATE posts SET comments='[]' WHERE id='" + board_id + "';")
-                                            database.commit()
+                                        if len(literal_eval(board_data["comments"])) > 0:
+                                            try:
+                                                cursor.execute("UPDATE posts SET comments='[]' WHERE id='" + board_id + "';")
+                                                database.commit()
 
-                                            await query.answer("Board cleared successfully")
-                                            await refresh_board(board_id)
-                                        except Exception as ex:
-                                            await query.answer("Couldn't clear the board")
+                                                await query.answer("Board cleared successfully")
+                                                await refresh_board(board_id)
+                                            except Exception as ex:
+                                                await query.answer("Couldn't clear the board")
+                                        else:
+                                            await query.answer("The board is already empty")
                                     else:
                                         await query.answer("You can't clear the board when it's closed")
                                 elif data[3] == "shareNotifications":
@@ -626,7 +639,7 @@ async def inline(client,query):
         comparedentry = [a for a in cursor.execute("SELECT * FROM posts WHERE id='" + str(post_id) + "';")]
         if len(comparedentry) > 0:
             board_data = parse_entry(comparedentry)
-            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/StivenEPHPBot?start=" + str(board_data["id"]))]]))],cache_time=1,is_personal=True)
+            await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]]))],cache_time=1,is_personal=True)
         else:
             await bot.answer_inline_query(query.id, results=[InlineQueryResultArticle("No Results",InputTextMessageContent("No board."))],cache_time=1,is_personal=True)
     else:
@@ -635,7 +648,7 @@ async def inline(client,query):
             boards = parse_group_entry(comparedentry)
             boards_results = []
             for board_data in boards:
-                boards_results.append(InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/StivenEPHPBot?start=" + str(board_data["id"]))]])))
+                boards_results.append(InlineQueryResultArticle(str(board_data["title"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")),InputTextMessageContent(board_text(board_data)),id=str(board_data["id"]),reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]])))
             await bot.answer_inline_query(query.id, results=boards_results,cache_time=1,is_personal=True)
 
 @bot.on_chosen_inline_result()
