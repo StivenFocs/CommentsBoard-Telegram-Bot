@@ -10,7 +10,7 @@ import json
 import copy
 import sys
 
-bot = Client("commentsBoardBot_session",api_id=,hash_id="")
+bot = Client("commentsBoardBot_session",,"")
 
 bot.start()
 
@@ -21,7 +21,7 @@ creating_post = {}
 editing_post = {}
 answering = {}
 
-bot_admins = ["1956629573"]
+bot_admins = ["289336202"]
 
 ################
 version = "1.2.4"
@@ -222,7 +222,7 @@ async def refresh_board(board_id):
         messages = literal_eval(board_data["messages"])
         for message in messages:
             if str(board_data["open"]) == "true":
-                await bot.edit_inline_text(str(message), board_text(board_data), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/StivenEPHPBot?start=" + str(board_data["id"]))]]), disable_web_page_preview=True)
+                await bot.edit_inline_text(str(message), board_text(board_data), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Leave a comment",url="https://t.me/CommentsBoardBot?start=" + str(board_data["id"]))]]), disable_web_page_preview=True)
             else:
                 await bot.edit_inline_text(str(message), board_text(board_data), disable_web_page_preview=True)
     else:
