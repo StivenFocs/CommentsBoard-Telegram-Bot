@@ -13,7 +13,6 @@ from ast import literal_eval
 import json
 
 import termcolor
-os.system("color")
 from time import gmtime, strftime
 
 ################
@@ -34,20 +33,21 @@ bot_admins = ["289336202"]
 
 ################
 
-version = "1.4.6"
+version = "1.4.7"
 
-home = "Welcome or Welcome back <a href='tg://user?id={user_id}'>{name}</a>!\nWith this bot you can create, edit, and share, little comment boards.\nEveryone can ✒️ Leave a comment to your board, you too! and it's absolutely free.\n\nFor first, use one of the buttons below to interact with the bot.\n\nDeveloped with LOV by <a href='tg://user?id=289336202'>StivenFocs</a>\nv{version}\nUpdate news: now 200+ board title and comments!!"
+home = "Welcome or Welcome back <a href='tg://user?id={user_id}'>{name}</a>!\nWith this bot you can create, edit, and share, little comment boards.\nEveryone can ✒️ Leave a comment to your board, you too! and it's absolutely free.\n\nFor first, use one of the buttons below to interact with the bot.\n\nDeveloped with LOV by <a href='tg://user?id=289336202'>StivenFocs</a>\nv{version}\nUpdate news: now 200+ board title and comments length!!"
 home_kb = InlineKeyboardMarkup([[InlineKeyboardButton("➕ New board", callback_data="post_new"),InlineKeyboardButton("💾 My boards",callback_data="post_mine")],[InlineKeyboardButton("❤️ Donate",url="https://buymeacoffee.com/stivenfocs"),InlineKeyboardButton("📂 Source code", url="https://github.com/StivenFocs/CommentsBoard-Telegram-Bot")],[InlineKeyboardButton("ℹ️ Terms of Use",url="https://telegra.ph/CommentsBoardBot---Terms-of-use-01-05"),InlineKeyboardButton("📣 Channel",url="https://t.me/CommentsBoardChannel")]])
 
-admin_home = "Hey Hey! what's my favorite developer?? MHHHhh??\n\nHere some stats:\nTotal boards: {total_boards}\nTotal users: {total_users}"
-admin_home_kb = InlineKeyboardMarkup([[InlineKeyboardButton("Get user data",callback_data="admin_user")]])
+admin_home = "Hey Hey, Stiven! *my favorite developer*\n\nHere some stats:\nTotal boards: {total_boards}\nTotal users: {total_users}"
+admin_home_kb = None
+#admin_home_kb = InlineKeyboardMarkup([[InlineKeyboardButton("Get user data",callback_data="admin_user")]])
 
 new_post_step1 = "Send the title/caption for your new board..\n\n/cancel"
 
 messages_no_commands = "You can't use commands during a text operation\n\nYou are actually commenting the board: <code>{board_id}</code>\n{board_title}\n\n/cancel"
 messages_no_boards = "No boards from you"
-messages_board_created = "<b>Board created!</b>\n\nYou can now use the below menu to edit, share, or delete this board.\n\n{board_title}\nID: <code>{board_id}</code>\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) shares this board.\n\nBy clicking the privacy mode button, you will toggle the profile link that is applied to comments user's names.\n\nNote that the delete button doesn't have a confirmation step."
-messages_board_panel = "{board_title}\n\nID: <code>{board_id}</code>\nShared {board_messages_amount} times\nWith {board_comments_amount} comments\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) shares this board.\n\nBy clicking the privacy mode button, you will toggle the profile link that is applied to comments user's names.\n\nNote that the delete button doesn't have a confirmation step."
+messages_board_created = "<b>Board created!</b>\n\nYou can now use the below menu to edit, share, or delete this board.\n\n{board_title}\nID: <code>{board_id}</code>\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) shares this board.\n\nBy clicking the privacy mode button, you will toggle the profile link that is applied to comments user's names.\n\nBy enabling the anonymous mode, you will hide the name and profile link of the comment sender.\n(But you, as the owner, can still see the comments authors)\n\nNote that the delete button doesn't have a confirmation step."
+messages_board_panel = "{board_title}\n\nID: <code>{board_id}</code>\nShared {board_messages_amount} times\nWith {board_comments_amount} comments\n\nBy clearing the board, you will delete all user's comments.\n\nBy clicking the share notification button you will toggle this option that, when enabled, you will receive a notification when someone (except you) shares this board.\n\nBy clicking the privacy mode button, you will toggle the profile link that is applied to comments user's names.\n\nBy enabling the anonymous mode, you will hide the name and profile link of the comment sender.\n(But you, as the owner, can still see the comments authors)\n\nNote that the delete button doesn't have a confirmation step."
 messages_boards_list = "This list contains your owned boards. Choose one to open it's edit panel."
 messages_board_deleted = "This board was deleted permanently."
 messages_board_without_comments = "{board_title}\n\nNo comments yet."
@@ -67,7 +67,7 @@ def default_tables():
         none = None
     
     try:
-        cursor.execute('CREATE TABLE "posts" ("id" INTEGER, "title" TEXT, "comments" TEXT, "messages" TEXT, "owner" TEXT, "share_notifications" TEXT, "open" TEXT, "privacy_mode" TEXT);')
+        cursor.execute('CREATE TABLE "posts" ("id" INTEGER, "title" TEXT, "comments" TEXT, "messages" TEXT, "owner" TEXT, "share_notifications" TEXT, "open" TEXT, "privacy_mode" TEXT, "anonymous_mode" TEXT);')
         print("Created table 'posts'")
     except Exception as ex:
         none = None
@@ -89,6 +89,7 @@ def parse_entry(entry):
     entry["share_notifications"] = text_entry[5]
     entry["open"] = text_entry[6]
     entry["privacy_mode"] = text_entry[7]
+    entry["anonymous_mode"] = text_entry[8]
 
     return entry
 
@@ -107,6 +108,7 @@ def parse_group_entry(entry):
         entry["share_notifications"] = new_array_[5]
         entry["open"] = new_array_[6]
         entry["privacy_mode"] = new_array_[7]
+        entry["anonymous_mode"] = new_array_[8]
         
         new_array.append(entry)
     return new_array
@@ -121,8 +123,10 @@ def board_comments(board_data):
             name = comment["name"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")
             comment_text = comment["text"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")
             comment_text = comment_text.replace("\n"," ")
-
-            if str(board_data["privacy_mode"]).lower() == "true":
+            
+            if str(board_data["anonymous_mode"]).lower() == "true":
+                text = text + "👤 Anonymous: " + comment_text + "\n"
+            elif str(board_data["privacy_mode"]).lower() == "true":
                 text = text + name + ": " + comment_text + "\n"
             else:
                 text = text + "<a href='tg://user?id=" + comment["id"] + "'>" + name + "</a>: " + comment_text + "\n"
@@ -234,7 +238,11 @@ def editBoardKb(board_id):
     if str(board_data["privacy_mode"]).lower() == "true":
         privacy_mode_btn = InlineKeyboardButton("✔️ Privacy Mode",callback_data="post_edit_" + str(board_id) + "_privacyMode")
 
-    return InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Refresh",callback_data="post_edit_" + str(board_id) + "_refresh"),InlineKeyboardButton("🖇 Share",switch_inline_query=str(board_id))],[toggle_btn],[InlineKeyboardButton("✏️ Edit title", callback_data="post_edit_" + str(board_id) + "_title"),InlineKeyboardButton("📃 Comments",callback_data="post_edit_" + str(board_id) + "_comments")],[share_notification_btn],[privacy_mode_btn],[InlineKeyboardButton("🗑 Delete the board",callback_data="post_delete_" + str(board_id))],[InlineKeyboardButton("🔙 Back to boards list",callback_data="post_mine")]])
+    anonymous_mode_btn = InlineKeyboardButton("❌ Anonymous Mode",callback_data="post_edit_" + str(board_id) + "_anonymousMode")
+    if str(board_data["anonymous_mode"]).lower() == "true":
+        anonymous_mode_btn = InlineKeyboardButton("✔️ Anonymous Mode",callback_data="post_edit_" + str(board_id) + "_anonymousMode")
+
+    return InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Refresh",callback_data="post_edit_" + str(board_id) + "_refresh"),InlineKeyboardButton("🖇 Share",switch_inline_query=str(board_id))],[toggle_btn],[InlineKeyboardButton("✏️ Edit title", callback_data="post_edit_" + str(board_id) + "_title"),InlineKeyboardButton("📃 Comments",callback_data="post_edit_" + str(board_id) + "_comments")],[share_notification_btn],[privacy_mode_btn],[anonymous_mode_btn],[InlineKeyboardButton("🗑 Delete the board",callback_data="post_delete_" + str(board_id))],[InlineKeyboardButton("🔙 Back to boards list",callback_data="post_mine")]])
 
 def editCommentsKb(board_id):
     clear_comments_btn = InlineKeyboardButton("🧹 Clear board comments",callback_data="post_edit_" + str(board_id) + "_clearComments")
@@ -303,7 +311,7 @@ async def send_comments_panel(message, board_id):
     if len(comparedentry) > 0:
         board_data = parse_entry(comparedentry)
 
-        text = "NOTE: this feature is still in beta\n\nHere the complete list of your board's comments\nClick to a comment id to delete it.\n\n"
+        text = "Here the complete list of your board's comments\nClick to a comment id to delete it.\n\n"
 
         comments = board_data["comments"]
         comments = literal_eval(comments)
@@ -315,7 +323,7 @@ async def send_comments_panel(message, board_id):
                 comment_text = comment["text"].replace("////+!!!+-,..-,.,,,,,,,OOf-..,,,!!+///", "'")
                 comment_text = comment_text.replace("\n"," ")
 
-                text = text + str(count) + ". <a href='tg://user?id=" + comment["id"] + "'>" + name + "</a>: " + comment_text + "\n"
+                text = text + str(count) + ". (" + comment["id"] + ") <a href='tg://user?id=" + comment["id"] + "'>" + name + "</a>: " + comment_text + "\n"
                 count = count + 1
 
         if  isinstance(message, CallbackQuery):
@@ -854,7 +862,7 @@ async def callback(client,query):
 
                                                             await query.answer("Comment deleted")
                                                         except Exception as ex:
-                                                            await query.answer("Couldn't delete the comment")
+                                                            await query.answer("Couldn't delete this comment")
 
                                                         try:
                                                             await send_edit_panel(query, board_id)
@@ -914,7 +922,6 @@ async def callback(client,query):
                                             
                                                 log_string = log_string + "board (" + str(board_id) + ") " + termcolor.colored("tried to clear the board when it's closed", "yellow")
                                         elif data[3] == "shareNotifications":
-
                                             initial_toggle = str(board_data["share_notifications"])
                                             final_toggle = ""
 
@@ -945,7 +952,6 @@ async def callback(client,query):
 
                                                 log_string = log_string + "board (" + str(board_id) + ") " + termcolor.colored("couldn't toggle the share notification", "red")
                                         elif data[3] == "privacyMode":
-
                                             initial_toggle = str(board_data["privacy_mode"])
                                             final_toggle = ""
 
@@ -977,6 +983,38 @@ async def callback(client,query):
                                                 print(ex)
 
                                                 log_string = log_string + "board (" + str(board_id) + ") " + termcolor.colored("couldn't toggle the privacy mode", "red")
+                                        elif data[3] == "anonymousMode":
+                                            initial_toggle = str(board_data["anonymous_mode"])
+                                            final_toggle = ""
+
+                                            try:
+                                                if str(board_data["anonymous_mode"]) == "true":
+                                                    cursor.execute("UPDATE posts SET anonymous_mode='false' WHERE id='" + str(board_id) +"';")
+                                                    database.commit()
+
+                                                    final_toggle = termcolor.colored("false", "red")
+                                                else:
+                                                    cursor.execute("UPDATE posts SET anonymous_mode='true' WHERE id='" + str(board_id) +"';")
+                                                    database.commit()
+
+                                                    final_toggle = termcolor.colored("true", "green")
+                                                
+                                                await query.answer("successfully toggled the anonymous mode option")
+                                                try:
+                                                    await send_edit_panel(query, board_id)
+                                                except Exception as ex:
+                                                    none = None
+                                                
+                                                log_string = log_string + "board (" + str(board_id) + ") " + termcolor.colored("anonymouse mode toggled", "green") + " " + final_toggle
+                                            
+                                                await refresh_board(board_id)
+                                            except Exception as ex:
+                                                await query.answer("Couldn't switch the anonymous mode option")
+
+                                                print("Couldn't switch the anonymous mode option for the board: " + str(board_id))
+                                                print(ex)
+
+                                                log_string = log_string + "board (" + str(board_id) + ") " + termcolor.colored("couldn't toggle the anonymous mode", "red")
                                         elif data[3] == "toggle":
                                             comments = literal_eval(board_data["comments"])
                                             if len(comments) > 0:
